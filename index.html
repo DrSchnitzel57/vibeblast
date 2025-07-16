@@ -10,6 +10,7 @@
     <style>
         :root {
             --grid-size: 8;
+            /* Let JS control these now */
             --cell-size: 40px; 
             --grid-gap: 4px;
             
@@ -96,10 +97,10 @@
             position: fixed;
             z-index: 1000;
             pointer-events: none;
-            transform: scale(1.1);
+            transform: scale(1.2); /* Enlarged scale */
             opacity: 0.95;
             cursor: grabbing;
-            transition: none;
+            transition: transform 0.1s ease-out;
         }
         .block-cell, .cell.color-1, .cell.color-2, .cell.color-3, .cell.color-4, .cell.color-5 {
             width: var(--cell-size);
@@ -233,7 +234,7 @@
             function setupLayout() {
                 const screenWidth = window.innerWidth;
                 const maxBoardWidth = Math.min(420, screenWidth - 32);
-                const borderSize = 0; // Border is now part of background
+                const borderSize = 0;
                 
                 cellSize = Math.floor((maxBoardWidth - (GRID_SIZE - 1) * gap - 2 * gap - 2 * borderSize) / GRID_SIZE);
 
@@ -347,15 +348,16 @@
                 };
                 
                 const rect = targetElement.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 
-                dragOffsetX = clientX - rect.left;
-                dragOffsetY = clientY - rect.top;
+                // NEW: Set offset to center the block on the cursor and lift it up
+                dragOffsetX = rect.width / 2;
+                dragOffsetY = rect.height + 20; // Lift above cursor
                 
                 document.body.appendChild(targetElement);
                 targetElement.classList.add('dragging');
 
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 moveDraggedBlock(clientX, clientY);
 
                 document.addEventListener('mousemove', onDrag);
