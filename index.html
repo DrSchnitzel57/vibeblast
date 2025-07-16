@@ -10,16 +10,15 @@
     <style>
         :root {
             --grid-size: 8;
-            /* Let JS control these now */
             --cell-size: 40px; 
             --grid-gap: 4px;
             
-            /* NEW Dark Mode Colors */
-            --color-1: #2dd4bf; /* Teal */
-            --color-2: #f472b6; /* Pink */
-            --color-3: #a3e635; /* Lime */
-            --color-4: #fb923c; /* Orange */
-            --color-5: #60a5fa; /* Blue */
+            /* NEW Dark Mode Colors with Light/Dark pairs */
+            --color-1-dark: #0d9488; --color-1-light: #2dd4bf; /* Teal */
+            --color-2-dark: #c026d3; --color-2-light: #f472b6; /* Fuchsia */
+            --color-3-dark: #65a30d; --color-3-light: #a3e635; /* Lime */
+            --color-4-dark: #f97316; --color-4-light: #fb923c; /* Orange */
+            --color-5-dark: #0284c7; --color-5-light: #60a5fa; /* Sky */
         }
         body {
             font-family: 'Poppins', sans-serif;
@@ -46,7 +45,7 @@
             padding: var(--grid-gap);
             position: relative;
             box-sizing: border-box; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.4);
         }
         .cell {
             width: var(--cell-size);
@@ -54,6 +53,7 @@
             background-color: #4b5563; /* Gray 600 */
             border-radius: 4px;
             transition: background-color 0.2s ease, transform 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
         }
         .cell.placed {
             animation: place-anim 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -61,6 +61,13 @@
         @keyframes place-anim {
             0% { transform: scale(0.8); }
             100% { transform: scale(1); }
+        }
+        .cell.clearing {
+            animation: clear-anim 0.4s ease-out forwards;
+        }
+        @keyframes clear-anim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.5); opacity: 0; }
         }
         .block-container {
             display: flex;
@@ -73,9 +80,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #374151;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border-radius: 12px;
-            border: 1px solid #4b5563;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .block-piece {
             display: grid;
@@ -106,13 +115,26 @@
             width: var(--cell-size);
             height: var(--cell-size);
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
         }
-        .color-1 { background-color: var(--color-1); }
-        .color-2 { background-color: var(--color-2); }
-        .color-3 { background-color: var(--color-3); }
-        .color-4 { background-color: var(--color-4); }
-        .color-5 { background-color: var(--color-5); }
+        /* Glossy reflection effect */
+        .block-cell::after, .cell.placed::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0) 50%);
+            transform: rotate(45deg);
+        }
+        .color-1 { background-image: radial-gradient(circle at top left, var(--color-1-light), var(--color-1-dark)); }
+        .color-2 { background-image: radial-gradient(circle at top left, var(--color-2-light), var(--color-2-dark)); }
+        .color-3 { background-image: radial-gradient(circle at top left, var(--color-3-light), var(--color-3-dark)); }
+        .color-4 { background-image: radial-gradient(circle at top left, var(--color-4-light), var(--color-4-dark)); }
+        .color-5 { background-image: radial-gradient(circle at top left, var(--color-5-light), var(--color-5-dark)); }
 
         .preview-element {
             position: absolute;
@@ -120,13 +142,16 @@
             z-index: 50;
             display: grid;
             gap: var(--grid-gap);
-            opacity: 0.6;
+            opacity: 0.8;
         }
         .preview-cell {
             width: var(--cell-size);
             height: var(--cell-size);
-            background-color: #f9fafb;
+            background-color: rgba(255, 255, 255, 0.5);
             border-radius: 4px;
+        }
+        .preview-cell.invalid {
+            background-color: rgba(255, 50, 50, 0.6); /* Red for invalid placement */
         }
         .particle {
             position: absolute;
@@ -349,7 +374,7 @@
                 
                 const rect = targetElement.getBoundingClientRect();
                 
-                // NEW: Set offset to center the block on the cursor and lift it up
+                // Set offset to center the block on the cursor and lift it up
                 dragOffsetX = rect.width / 2;
                 dragOffsetY = rect.height + 20; // Lift above cursor
                 
@@ -511,8 +536,9 @@
                         const cellElement = boardElement.querySelector(`[data-row='${r}'][data-col='${c}']`);
                         if(cellElement && board[r][c] !== 0) {
                             createParticles(cellElement);
-                            cellElement.className = 'cell';
-                            board[r][c] = 0;
+                            // Add a class to animate the block out
+                            cellElement.classList.add('clearing');
+                            board[r][c] = 0; // Update the logical board
                             totalCleared++;
                         }
                         clearedCells.add(`${r},${c}`);
@@ -530,6 +556,9 @@
 
                 setTimeout(() => {
                     isClearing = false;
+                    // Now fully reset the class names after the animation
+                    const clearedElements = boardElement.querySelectorAll('.clearing');
+                    clearedElements.forEach(el => el.className = 'cell');
                     checkGameOver();
                 }, 600);
             }
@@ -575,13 +604,15 @@
                 if (!draggedBlock) return;
                 
                 const { row, col } = getGridCoordsFromPosition(clientX, clientY);
-
-                if (canPlaceBlock(draggedBlock.data, row, col)) {
-                    createPreview(draggedBlock.data, row, col);
+                
+                // Always create preview if over the board
+                if (row !== -99) {
+                    const isValid = canPlaceBlock(draggedBlock.data, row, col);
+                    createPreview(draggedBlock.data, row, col, isValid);
                 }
             }
             
-            function createPreview(blockData, startRow, startCol) {
+            function createPreview(blockData, startRow, startCol, isValid) {
                 previewElement = document.createElement('div');
                 previewElement.classList.add('preview-element');
                 
@@ -596,6 +627,9 @@
                         const previewCell = document.createElement('div');
                         if (cell === 1) {
                             previewCell.classList.add('preview-cell');
+                            if (!isValid) {
+                                previewCell.classList.add('invalid');
+                            }
                         }
                         previewElement.appendChild(previewCell);
                     });
